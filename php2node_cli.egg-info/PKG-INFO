@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: php2node-cli
+Version: 0.1.0
+Summary: Resolve CodeIgniter endpoints to PHP methods and generate Node.js (Express+TS) scaffold
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: openpyxl>=3.1.2
+Requires-Dist: python-dotenv>=1.0.1
+
+# php2node_cli

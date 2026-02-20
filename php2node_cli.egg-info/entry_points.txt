@@ -1,0 +1,2 @@
+[console_scripts]
+php2node = php2node_cli.cli:main

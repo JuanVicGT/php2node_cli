@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "php2node-cli"
+version = "0.1.0"
+description = "Resolve CodeIgniter endpoints to PHP methods and generate Node.js (Express+TS) scaffold"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "openpyxl>=3.1.2",
+  "python-dotenv>=1.0.1",
+]
+
+[project.scripts]
+php2node = "php2node_cli.cli:main"
+
+[tool.setuptools]
+packages = ["php2node_cli"]

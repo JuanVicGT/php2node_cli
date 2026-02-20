@@ -2,23 +2,23 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import shutil
 from pathlib import Path
-import os
 
+from .extractor import analyze_php_method, detect_dependencies, extract_method_block
 from .inventory import Inventory
-from .resolver import resolve_controller
-from .extractor import extract_method_block, detect_dependencies, analyze_php_method
-from .scaffold_node import generate_scaffold
 from .report import build_report_md, build_unresolved_md, write_report
+from .resolver import resolve_controller
+from .scaffold_node import generate_scaffold
 from .utils import (
-    norm_http,
-    norm_endpoint_path,
-    norm_version,
     endpoint_key,
     ensure_dir,
-    write_text,
+    norm_endpoint_path,
+    norm_http,
+    norm_version,
     safe_slug,
+    write_text,
 )
 
 LOG = logging.getLogger("php2node")
@@ -43,7 +43,6 @@ def _load_dotenv_if_present() -> None:
         from dotenv import load_dotenv  # type: ignore
         load_dotenv(dotenv_path=str(env_path), override=False)
     except Exception as e:
-        # Do not hard-fail: env is just convenience
         LOG.debug("dotenv not loaded: %s", e)
 
 
@@ -65,24 +64,47 @@ def parse_args() -> argparse.Namespace:
 
     # defaults from .env
     default_repo = _env("PHP2NODE_REPO_ROOT")
-    default_inv = _env("PHP2NODE_INVENTORY_XLSX")
+    default_inv = _env("PHP2NODE_INVENTORY_XLSX")  # opcional si quieres setear uno "por defecto"
     default_sheet = _env("PHP2NODE_SHEET") or "EndPoints"
     default_out = _env("PHP2NODE_OUT") or "./out"
     default_app = _env("PHP2NODE_APP") or "auto"
 
-    p.add_argument("--repo-root", required=False, default=default_repo,
-                   help="Local path to repo root. Also via PHP2NODE_REPO_ROOT in .env")
-    p.add_argument("--inventory-xlsx", required=False, default=default_inv,
-                   help="Path to inventory Excel. Also via PHP2NODE_INVENTORY_XLSX in .env")
+    p.add_argument(
+        "--repo-root",
+        required=False,
+        default=default_repo,
+        help="Local path to repo root. Also via PHP2NODE_REPO_ROOT in .env",
+    )
 
-    p.add_argument("--sheet", required=False, default=default_sheet,
-                   help='Excel sheet name (default EndPoints). Also via PHP2NODE_SHEET in .env')
+    # ahora sí: si existe PHP2NODE_INVENTORY_XLSX lo toma como default
+    p.add_argument(
+        "--inventory-xlsx",
+        required=False,
+        default=default_inv,
+        help="Path to inventory Excel. Also via PHP2NODE_INVENTORY_XLSX in .env, or auto-select via PHP2NODE_INVENTORY_V1_XLSX/PHP2NODE_INVENTORY_V2_XLSX.",
+    )
 
-    p.add_argument("--out", required=False, default=default_out,
-                   help="Output folder (default ./out). Also via PHP2NODE_OUT in .env")
+    p.add_argument(
+        "--sheet",
+        required=False,
+        default=default_sheet,
+        help='Excel sheet name (default EndPoints). Also via PHP2NODE_SHEET in .env',
+    )
 
-    p.add_argument("--app", required=False, default=default_app, choices=["api", "portal", "auto"],
-                   help="Search scope. Also via PHP2NODE_APP in .env")
+    p.add_argument(
+        "--out",
+        required=False,
+        default=default_out,
+        help="Output folder (default ./out). Also via PHP2NODE_OUT in .env",
+    )
+
+    p.add_argument(
+        "--app",
+        required=False,
+        default=default_app,
+        choices=["api", "portal", "auto"],
+        help="Search scope. Also via PHP2NODE_APP in .env",
+    )
 
     p.add_argument("--http-method", required=True, help="GET|POST|PUT|DELETE")
     p.add_argument("--endpoint-path", required=True, help='Example: "bank_account/dacustomer_bank" (no leading slash)')
@@ -99,12 +121,56 @@ def _require_arg(value: str | None, flag: str, env_name: str) -> str:
     raise SystemExit(f"Missing {flag} (or {env_name} in .env)")
 
 
+def _resolve_inventory_path(args_inventory: str | None, version: str | None) -> str:
+    """
+    Resuelve el inventario de Excel.
+    Prioridad:
+      1) --inventory-xlsx si viene
+      2) PHP2NODE_INVENTORY_XLSX si existe
+      3) Si hay --version:
+           v1 -> PHP2NODE_INVENTORY_V1_XLSX
+           v2 -> PHP2NODE_INVENTORY_V2_XLSX
+      4) Fallback si no hay version: intenta V2 y luego V1
+    """
+    # 1/2: ya viene con default env si existe, pero lo respetamos igual
+    if args_inventory and args_inventory.strip():
+        return args_inventory.strip()
+
+    inv_default = _env("PHP2NODE_INVENTORY_XLSX")
+    if inv_default:
+        return inv_default
+
+    inv_v1 = _env("PHP2NODE_INVENTORY_V1_XLSX")
+    inv_v2 = _env("PHP2NODE_INVENTORY_V2_XLSX")
+
+    if version == "v1" and inv_v1:
+        return inv_v1
+    if version == "v2" and inv_v2:
+        return inv_v2
+
+    # fallback: prefer v2 if present
+    if inv_v2:
+        return inv_v2
+    if inv_v1:
+        return inv_v1
+
+    raise SystemExit(
+        "Missing --inventory-xlsx (or PHP2NODE_INVENTORY_XLSX / PHP2NODE_INVENTORY_V1_XLSX / PHP2NODE_INVENTORY_V2_XLSX in .env)"
+    )
+
+
 def main() -> int:
     args = parse_args()
     setup_logging(args.verbose)
 
     repo_root_str = _require_arg(args.repo_root, "--repo-root", "PHP2NODE_REPO_ROOT")
-    inv_path_str = _require_arg(args.inventory_xlsx, "--inventory-xlsx", "PHP2NODE_INVENTORY_XLSX")
+
+    http_method = norm_http(args.http_method)
+    endpoint_path = norm_endpoint_path(args.endpoint_path)
+    version = norm_version(args.version) if args.version else None
+    app_choice = args.app
+
+    inv_path_str = _resolve_inventory_path(args.inventory_xlsx, version)
 
     repo_root = Path(repo_root_str).expanduser().resolve()
     inv_path = Path(inv_path_str).expanduser().resolve()
@@ -115,11 +181,6 @@ def main() -> int:
         shutil.rmtree(out_root)
 
     ensure_dir(out_root)
-
-    http_method = norm_http(args.http_method)
-    endpoint_path = norm_endpoint_path(args.endpoint_path)
-    version = norm_version(args.version) if args.version else None
-    app_choice = args.app
 
     LOG.info("Stage 1: Load inventory")
     inv = Inventory.load(inv_path, sheet_name=args.sheet)
@@ -277,7 +338,6 @@ def main() -> int:
     if deps.get("libraries"):
         risks.append("Uses CodeIgniter libraries. Confirm equivalents in Node or re-implement.")
 
-    # changes.md (A+B)
     changes_lines = [
         "# Changes: PHP -> Node",
         "",
