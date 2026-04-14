@@ -1,0 +1,15 @@
+{
+  "customer": "customer",
+  "bank_account": "accounts",
+  "card": "cards",
+  "transaction": "transactions",
+  "payment": "transactions",
+  "transfer": "transactions",
+  "wallet": "wallet",
+  "auth": "identity",
+  "login": "identity",
+  "user": "identity",
+  "notification": "notifications",
+  "pronet": "integration",
+  "terceros": "integration"
+}

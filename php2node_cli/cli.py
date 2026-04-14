@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import shutil
@@ -10,7 +11,7 @@ from .extractor import analyze_php_method, detect_dependencies, extract_method_b
 from .inventory import Inventory
 from .report import build_report_md, build_unresolved_md, write_report
 from .resolver import resolve_controller
-from .scaffold_node import generate_scaffold
+from .scaffold_nest import generate_nest_scaffold
 from .utils import (
     endpoint_key,
     ensure_dir,
@@ -59,12 +60,11 @@ def parse_args() -> argparse.Namespace:
 
     p = argparse.ArgumentParser(
         prog="php2node",
-        description="Resolve CodeIgniter endpoint to PHP method and generate Node.js (Express+TS) scaffold.",
+        description="Resolve CodeIgniter endpoint to PHP method and generate NestJS scaffold.",
     )
 
-    # defaults from .env
     default_repo = _env("PHP2NODE_REPO_ROOT")
-    default_inv = _env("PHP2NODE_INVENTORY_XLSX")  # opcional si quieres setear uno "por defecto"
+    default_inv = _env("PHP2NODE_INVENTORY_XLSX")
     default_sheet = _env("PHP2NODE_SHEET") or "EndPoints"
     default_out = _env("PHP2NODE_OUT") or "./out"
     default_app = _env("PHP2NODE_APP") or "auto"
@@ -76,7 +76,6 @@ def parse_args() -> argparse.Namespace:
         help="Local path to repo root. Also via PHP2NODE_REPO_ROOT in .env",
     )
 
-    # ahora sí: si existe PHP2NODE_INVENTORY_XLSX lo toma como default
     p.add_argument(
         "--inventory-xlsx",
         required=False,
@@ -132,7 +131,6 @@ def _resolve_inventory_path(args_inventory: str | None, version: str | None) -> 
            v2 -> PHP2NODE_INVENTORY_V2_XLSX
       4) Fallback si no hay version: intenta V2 y luego V1
     """
-    # 1/2: ya viene con default env si existe, pero lo respetamos igual
     if args_inventory and args_inventory.strip():
         return args_inventory.strip()
 
@@ -148,7 +146,6 @@ def _resolve_inventory_path(args_inventory: str | None, version: str | None) -> 
     if version == "v2" and inv_v2:
         return inv_v2
 
-    # fallback: prefer v2 if present
     if inv_v2:
         return inv_v2
     if inv_v1:
@@ -157,6 +154,28 @@ def _resolve_inventory_path(args_inventory: str | None, version: str | None) -> 
     raise SystemExit(
         "Missing --inventory-xlsx (or PHP2NODE_INVENTORY_XLSX / PHP2NODE_INVENTORY_V1_XLSX / PHP2NODE_INVENTORY_V2_XLSX in .env)"
     )
+
+
+def _load_domain_map() -> dict[str, str]:
+    domain_map_file = Path("domain_map.json")
+    if not domain_map_file.exists():
+        return {}
+
+    try:
+        data = json.loads(domain_map_file.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            return {str(k).strip().lower(): str(v).strip().lower() for k, v in data.items()}
+        return {}
+    except Exception as e:
+        LOG.warning("Could not load domain_map.json: %s", e)
+        return {}
+
+
+def _resolve_domain_name(controller_name: str, domain_map: dict[str, str]) -> str:
+    key = (controller_name or "").strip().lower()
+    if not key:
+        return "unknown"
+    return domain_map.get(key, key)
 
 
 def main() -> int:
@@ -300,33 +319,35 @@ def main() -> int:
     ekey = endpoint_key(row.version, http_method, endpoint_path)
     base_dir = out_root / "resolved" / row.version / ekey
     php_dir = base_dir / "php"
-    node_dir = base_dir / "node"
     ensure_dir(php_dir)
-    ensure_dir(node_dir)
 
     write_text(php_dir / "controller_path.txt", str(resolved.controller_file))
     write_text(php_dir / "method.php", ext.extracted)
 
-    # analysis.json
-    import json
     analysis = analyze_php_method(ext.extracted)
     write_text(php_dir / "analysis.json", json.dumps(analysis, indent=2, ensure_ascii=False))
 
-    # Route path
+    domain_map = _load_domain_map()
+    domain_name = _resolve_domain_name(row.controller, domain_map)
+
+    node_dir = base_dir / "node" / "domains" / domain_name
+    ensure_dir(node_dir)
+
     if row.endpoint_path_with_version:
         route_path = "/" + row.endpoint_path_with_version.lstrip("/")
     else:
         route_path = "/" + f"{row.version}/{row.endpoint_path}".lstrip("/")
 
-    name_base = safe_slug(f"{row.controller}_{row.method_base}")
+    name_base = safe_slug(row.controller)
 
-    LOG.info("Stage 6: Generate Node scaffold (Express + TS)")
-    generate_scaffold(
+    LOG.info("Stage 6: Generate Node scaffold (NestJS + TS)")
+    generate_nest_scaffold(
         out_node_dir=node_dir,
         http_method=http_method,
         route_path=route_path,
         name_base=name_base,
         handler_name=row.method_base,
+        analysis_data=analysis,
     )
 
     LOG.info("Stage 7: Generate report.md + changes.md")
@@ -343,6 +364,10 @@ def main() -> int:
         "",
         "## Endpoint",
         f"- {http_method} {endpoint_path}",
+        "",
+        "## Domain target",
+        f"- Controller: {row.controller}",
+        f"- Domain: {domain_name}",
         "",
         "## Inputs mapping",
         f"- PHP $this->get(): {analysis.get('inputs', {}).get('get', [])} -> Node req.query",
