@@ -4,6 +4,7 @@ import argparse
 import json
 import logging
 import os
+import re
 import shutil
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from .inventory import Inventory
 from .report import build_report_md, build_unresolved_md, write_report
 from .resolver import resolve_controller
 from .scaffold_nest import generate_nest_scaffold
+from .scaffold_akisi import generate_akisi_scaffold
 from .utils import (
     endpoint_key,
     ensure_dir,
@@ -68,6 +70,7 @@ def parse_args() -> argparse.Namespace:
     default_sheet = _env("PHP2NODE_SHEET") or "EndPoints"
     default_out = _env("PHP2NODE_OUT") or "./out"
     default_app = _env("PHP2NODE_APP") or "auto"
+    default_akisi_root = _env("AKISI_REPO_ROOT")
 
     p.add_argument(
         "--repo-root",
@@ -110,6 +113,34 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--version", required=False, help="v1|v2 (optional). If omitted, inferred from inventory.")
     p.add_argument("--clean-out", action="store_true", help="Delete output folder before writing new results.")
     p.add_argument("-v", "--verbose", action="count", default=0, help="Increase log verbosity (-v, -vv)")
+
+    # ── Argumentos del scaffold Akisi ────────────────────────────────────────
+    p.add_argument(
+        "--ms-name",
+        required=False,
+        default=None,
+        help="Nombre del microservicio destino sin prefijo ms-. Ej: bank-account. "
+             "Si se omite usa el dominio detectado desde domain_map.json.",
+    )
+    p.add_argument(
+        "--ms-new",
+        action="store_true",
+        help="Indica que el microservicio es nuevo. Genera estructura completa + Dockerfile + package.json + docker-compose.patch.yml.",
+    )
+    p.add_argument(
+        "--ms-port",
+        required=False,
+        type=int,
+        default=None,
+        help="Puerto del microservicio nuevo. Si se omite, se detecta automáticamente desde el docker-compose.yml del repo NestJS.",
+    )
+    p.add_argument(
+        "--akisi-root",
+        required=False,
+        default=default_akisi_root,
+        help="Ruta al repo NestJS destino (akisi_backend_nestjs). También via AKISI_REPO_ROOT en .env. "
+             "Se usa para detectar puertos usados y generar instrucciones con rutas correctas.",
+    )
 
     return p.parse_args()
 
@@ -154,6 +185,34 @@ def _resolve_inventory_path(args_inventory: str | None, version: str | None) -> 
     raise SystemExit(
         "Missing --inventory-xlsx (or PHP2NODE_INVENTORY_XLSX / PHP2NODE_INVENTORY_V1_XLSX / PHP2NODE_INVENTORY_V2_XLSX in .env)"
     )
+
+
+def _detectar_puerto_disponible(akisi_root: str | None, fallback: int = 3003) -> int:
+    """
+    Lee el docker-compose.yml del repo NestJS y retorna el siguiente puerto disponible.
+    Si no puede leer el archivo retorna el fallback.
+    """
+    if not akisi_root:
+        return fallback
+
+    compose_path = Path(akisi_root).expanduser().resolve() / "docker-compose.yml"
+    if not compose_path.exists():
+        LOG.warning("No se encontró docker-compose.yml en %s, usando puerto %d", akisi_root, fallback)
+        return fallback
+
+    try:
+        contenido = compose_path.read_text(encoding="utf-8")
+        # Busca patrones como: "3001:3001" o "- 3002:3002"
+        puertos = re.findall(r'["\s\-](\d{4,5}):\d{4,5}', contenido)
+        usados = {int(p) for p in puertos}
+        candidato = fallback
+        while candidato in usados:
+            candidato += 1
+        LOG.info("Puertos detectados en docker-compose: %s → Asignando: %d", sorted(usados), candidato)
+        return candidato
+    except Exception as e:
+        LOG.warning("No se pudo leer docker-compose.yml: %s, usando puerto %d", e, fallback)
+        return fallback
 
 
 def _load_domain_map() -> dict[str, str]:
@@ -349,6 +408,31 @@ def main() -> int:
         handler_name=row.method_base,
         analysis_data=analysis,
     )
+
+    LOG.info("Stage 6b: Generate Akisi scaffold (patrón akisi_backend_nestjs)")
+    # Nombre del microservicio: --ms-name tiene prioridad, si no se usa el dominio detectado
+    ms_name = args.ms_name if args.ms_name else domain_name
+    es_nuevo = args.ms_new
+
+    # Puerto: --ms-port tiene prioridad, si no se detecta automáticamente desde docker-compose
+    akisi_root = getattr(args, "akisi_root", None)
+    if args.ms_port:
+        ms_port = args.ms_port
+    else:
+        ms_port = _detectar_puerto_disponible(akisi_root, fallback=3003)
+
+    generate_akisi_scaffold(
+        out_base_dir=base_dir,
+        http_method=http_method,
+        route_path=route_path,
+        ms_name=ms_name,
+        handler_name=row.method_base,
+        port=ms_port,
+        es_nuevo=es_nuevo,
+        analysis_data=analysis,
+        akisi_repo_root=akisi_root,
+    )
+    LOG.info("Akisi scaffold generado: ms-%s (puerto %d, nuevo=%s)", ms_name, ms_port, es_nuevo)
 
     LOG.info("Stage 7: Generate report.md + changes.md")
     risks = []
