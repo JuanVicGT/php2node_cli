@@ -1,4 +1,4 @@
-# php2node_cli — Herramienta de Migración PHP → NestJS
+# Xib — Herramienta de Migración PHP → NestJS
 
 Herramienta CLI para migrar endpoints de CodeIgniter (PHP) al patrón de microservicios de `akisi_backend_nestjs` (NestJS + Sequelize + MySQL).
 
@@ -78,7 +78,7 @@ Una vez instalado y configurado, el flujo normal es:
 source .venv/Scripts/activate
 
 # Lanzar la interfaz interactiva
-bash toolmigration.sh
+bash xib.sh
 ```
 
 La herramienta te guía paso a paso:
@@ -272,7 +272,7 @@ Usar comillas dobles en el `.env` y en los argumentos:
 1. Clonar este repositorio en tu máquina local
 2. Ejecutar `bash setup.sh` (una sola vez)
 3. Activar el entorno virtual: `source .venv/Scripts/activate`
-4. Ejecutar `bash toolmigration.sh` por cada endpoint a migrar
+4. Ejecutar `bash xib.sh` por cada endpoint a migrar
 5. Revisar el output en `out/resolved/`
 6. Seguir el `instrucciones.md` generado para integrar al repo NestJS
 7. Validar con `docker-compose up --build <ms-nombre>`

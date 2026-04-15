@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# toolmigration.sh
-# Interfaz interactiva de la herramienta de migración PHP → NestJS
-# Uso: bash toolmigration.sh
+# xib.sh — Herramienta de migración PHP → NestJS
+# "Xib" significa transformación en maya k'iche'
+# Uso: bash xib.sh
 
 set -euo pipefail
 
@@ -77,8 +77,8 @@ fi
 # ─────────────────────────────────────────────────────────────────────────────
 clear
 linea
-echo -e "${CYAN}       HERRAMIENTA DE MIGRACIÓN PHP → NestJS${RESET}"
-echo -e "${CYAN}       akisi_backend_nestjs — Scaffold automático${RESET}"
+echo -e "${CYAN}       XIB — Herramienta de Migración PHP → NestJS${RESET}"
+echo -e "${CYAN}       Transformación • akisi_backend_nestjs${RESET}"
 linea
 echo ""
 

@@ -206,14 +206,14 @@ if [[ "$VENV_OK" == false || "$TOOL_OK" == false ]]; then
     echo ""
     echo "  Una vez completados esos pasos, ejecuta la herramienta con:"
     echo ""
-    echo "    bash toolmigration.sh"
+    echo "    bash xib.sh"
     echo ""
 else
     linea
     echo ""
     echo "  Todo listo. Puedes comenzar con:"
     echo ""
-    echo "    bash toolmigration.sh"
+    echo "    bash xib.sh"
     echo ""
 fi
 
