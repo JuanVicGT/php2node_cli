@@ -15,6 +15,7 @@ from .resolver import resolve_controller
 from .scaffold_nest import generate_nest_scaffold
 from .scaffold_akisi import generate_akisi_scaffold
 from .utils import (
+    camel_case,
     endpoint_key,
     ensure_dir,
     norm_endpoint_path,
@@ -398,6 +399,7 @@ def main() -> int:
         route_path = "/" + f"{row.version}/{row.endpoint_path}".lstrip("/")
 
     name_base = safe_slug(row.controller)
+    handler_name = camel_case(row.method_base)
 
     LOG.info("Stage 6: Generate Node scaffold (NestJS + TS)")
     generate_nest_scaffold(
@@ -405,7 +407,7 @@ def main() -> int:
         http_method=http_method,
         route_path=route_path,
         name_base=name_base,
-        handler_name=row.method_base,
+        handler_name=handler_name,
         analysis_data=analysis,
     )
 
@@ -426,7 +428,7 @@ def main() -> int:
         http_method=http_method,
         route_path=route_path,
         ms_name=ms_name,
-        handler_name=row.method_base,
+        handler_name=handler_name,
         port=ms_port,
         es_nuevo=es_nuevo,
         analysis_data=analysis,

@@ -7,6 +7,8 @@ php2node_cli/extractor.py
 php2node_cli/inventory.py
 php2node_cli/report.py
 php2node_cli/resolver.py
+php2node_cli/scaffold_akisi.py
+php2node_cli/scaffold_nest.py
 php2node_cli/scaffold_node.py
 php2node_cli/translator.py
 php2node_cli/transpiler.py
