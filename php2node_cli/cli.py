@@ -120,7 +120,7 @@ def parse_args() -> argparse.Namespace:
         "--ms-name",
         required=False,
         default=None,
-        help="Nombre del microservicio destino sin prefijo ms-. Ej: bank-account. "
+        help="Nombre del microservicio destino sin prefijo msa-. Ej: bank-account. "
              "Si se omite usa el dominio detectado desde domain_map.json.",
     )
     p.add_argument(
@@ -434,7 +434,7 @@ def main() -> int:
         analysis_data=analysis,
         akisi_repo_root=akisi_root,
     )
-    LOG.info("Akisi scaffold generado: ms-%s (puerto %d, nuevo=%s)", ms_name, ms_port, es_nuevo)
+    LOG.info("Akisi scaffold generado: msa-%s (puerto %d, nuevo=%s)", ms_name, ms_port, es_nuevo)
 
     LOG.info("Stage 7: Generate report.md + changes.md")
     risks = []

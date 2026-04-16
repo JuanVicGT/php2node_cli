@@ -168,8 +168,8 @@ echo ""
 # ─────────────────────────────────────────────────────────────────────────────
 linea_sm
 titulo "[5/6]  Nombre del microservicio"
-echo "       Solo el nombre, sin el prefijo ms-."
-echo "       Ejemplo: bank-account  →  se creará ms-bank-account"
+echo "       Solo el nombre, sin el prefijo msa-."
+echo "       Ejemplo: bank-account  →  se creará msa-bank-account"
 echo ""
 while true; do
     read -rp "  > " MS_NAME_INPUT
@@ -264,7 +264,7 @@ if [[ -n "$VERSION_ARG" ]]; then
 else
     echo "   Versión       : Detectar automáticamente"
 fi
-echo "   Microservicio : ms-${MS_NAME_INPUT}"
+echo "   Microservicio : msa-${MS_NAME_INPUT}"
 if [[ "$ES_NUEVO" == true ]]; then
     echo "   Tipo          : NUEVO (se genera estructura completa)"
     echo "   Puerto        : ${MS_PORT}"
@@ -328,7 +328,7 @@ if [[ $EXIT_CODE -eq 0 ]]; then
     echo "  Revisa el output en: ${PHP2NODE_OUT:-./out}"
     echo ""
     echo "  Archivos generados:"
-    echo "    - ms-${MS_NAME_INPUT}/              → código del microservicio"
+    echo "    - msa-${MS_NAME_INPUT}/             → código del microservicio"
     echo "    - gateway-changes/                  → parches para mdl-billetera"
     if [[ "$ES_NUEVO" == true ]]; then
     echo "    - docker-compose.patch.yml          → bloque para el compose"

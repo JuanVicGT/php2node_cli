@@ -4,7 +4,7 @@ scaffold_akisi.py
 Genera el output de migración siguiendo el patrón del repositorio akisi_backend_nestjs.
 
 Patrón de estructura por microservicio:
-  ms-<name>/
+  msa-<name>/
   ├── Dockerfile
   ├── package.json
   ├── tsconfig.json
@@ -308,7 +308,7 @@ import {{ {entity_class} }} from '../{entity_snake}.model';
 
 /**
  * Servicio: {entity_class}Service
- * Microservicio: ms-{ms_name_slug}
+ * Microservicio: msa-{ms_name_slug}
  *
  * Generado automáticamente. Revisar la guía de migración en cada método.
  */
@@ -357,7 +357,7 @@ import {{ {entity_class}Service }} from '../{entity_snake}.service';
 /**
  * Controller: {entity_class}Controller
  * Ruta base : {route_path}
- * Microservicio: ms-{ms_name_slug}
+ * Microservicio: msa-{ms_name_slug}
  *
  * Generado automáticamente desde la herramienta de migración PHP → NestJS.
  */
@@ -395,7 +395,7 @@ import {{ {entity_class}Controller }} from './{entity_snake}.controller';
 import {{ {entity_class}Service }} from './{entity_snake}.service';
 
 /**
- * Módulo raíz del microservicio ms-{ms_name_slug}
+ * Módulo raíz del microservicio msa-{ms_name_slug}
  */
 @Module({{
   imports: [
@@ -427,13 +427,13 @@ import {{ NestFactory }} from '@nestjs/core';
 import {{ AppModule }} from './app.module';
 
 /**
- * Bootstrap del microservicio ms-{ms_name_slug}
+ * Bootstrap del microservicio msa-{ms_name_slug}
  * Puerto: {port}
  */
 async function bootstrap() {{
   const app = await NestFactory.create(AppModule);
   await app.listen(process.env.PORT ?? {port}, '0.0.0.0');
-  console.log(`ms-{ms_name_slug} corriendo en el puerto: ${{process.env.PORT ?? {port}}}`);
+  console.log(`msa-{ms_name_slug} corriendo en el puerto: ${{process.env.PORT ?? {port}}}`);
 }}
 bootstrap();
 """
@@ -442,7 +442,7 @@ bootstrap();
 def _build_package_json(ms_name_slug: str) -> str:
     """Genera el package.json del microservicio."""
     return f"""{{
-  "name": "ms-{ms_name_slug}",
+  "name": "msa-{ms_name_slug}",
   "version": "1.0.0",
   "scripts": {{
     "start:dev": "ts-node src/main.ts",
@@ -472,7 +472,7 @@ def _build_package_json(ms_name_slug: str) -> str:
 
 def _build_dockerfile(ms_name_slug: str, port: int) -> str:
     """Genera el Dockerfile del microservicio."""
-    return f"""# Dockerfile — ms-{ms_name_slug}
+    return f"""# Dockerfile — msa-{ms_name_slug}
 # Generado automáticamente por la herramienta de migración PHP → NestJS
 
 FROM node:20-alpine
@@ -534,7 +534,7 @@ def _build_gateway_controller_patch(
     body_arg = "\n      body," if include_body else ""
 
     return f"""// ══════════════════════════════════════════════════════════════════════
-// PARCHE GATEWAY — ms-{ms_name_slug}
+// PARCHE GATEWAY — msa-{ms_name_slug}
 // Agregar este bloque en: mdl-billetera/src/app.controller.ts
 //
 // PASO 1: Agregar el decorador a la lista de imports de @nestjs/common:
@@ -543,7 +543,7 @@ def _build_gateway_controller_patch(
 // PASO 2: Pegar este método dentro de la clase AppController:
 // ══════════════════════════════════════════════════════════════════════
 
-  // ── ms-{ms_name_slug} ──────────────────────────────────────────────────────
+  // ── msa-{ms_name_slug} ──────────────────────────────────────────────────────
 
   @{decorator}('{route_path.strip("/")}')
   {handler_name}(@Query() query: unknown,{body_param}
@@ -585,26 +585,26 @@ def _build_gateway_service_patch(
         llamada = f"      const {{ data }} = await axios.{metodo_axios}(`${{url}}/{ruta_limpia}`);"
 
     return f"""// ══════════════════════════════════════════════════════════════════════
-// PARCHE GATEWAY — ms-{ms_name_slug}
+// PARCHE GATEWAY — msa-{ms_name_slug}
 // Agregar este bloque en: mdl-billetera/src/app.service.ts
 //
 // PASO 1: Agregar la constante de URL al inicio del archivo (fuera de la clase):
 //
 //   const {env_var} =
-//     process.env.{env_var} || 'http://ms-{ms_name_slug}:{port}';
+//     process.env.{env_var} || 'http://msa-{ms_name_slug}:{port}';
 //
 // PASO 2: Pegar este método dentro de la clase AppService:
 // ══════════════════════════════════════════════════════════════════════
 
-  // ── ms-{ms_name_slug} ──────────────────────────────────────────────────────
+  // ── msa-{ms_name_slug} ──────────────────────────────────────────────────────
 
   {firma}: Promise<unknown> {{
-    const url = process.env.{env_var} || 'http://ms-{ms_name_slug}:{port}';
+    const url = process.env.{env_var} || 'http://msa-{ms_name_slug}:{port}';
     try {{
 {llamada}
       return data;
     }} catch (err) {{
-      this.logger.error('Error contactando ms-{ms_name_slug}', err.message);
+      this.logger.error('Error contactando msa-{ms_name_slug}', err.message);
       return {{ error: 'Microservicio no disponible' }};
     }}
   }}
@@ -615,17 +615,17 @@ def _build_docker_compose_patch(ms_name_slug: str, port: int) -> str:
     """Genera el bloque de servicio a agregar en docker-compose.yml."""
     env_var = f"MS_{ms_name_slug.upper().replace('-', '_')}_URL"
     return f"""# ══════════════════════════════════════════════════════════════════════
-# PARCHE DOCKER COMPOSE — ms-{ms_name_slug}
+# PARCHE DOCKER COMPOSE — msa-{ms_name_slug}
 # Agregar este bloque en: docker-compose.yml bajo la sección "services:"
 #
 # Además, agregar la variable de entorno al servicio mdl-billetera:
-#   {env_var}: http://ms-{ms_name_slug}:{port}
+#   {env_var}: http://msa-{ms_name_slug}:{port}
 # ══════════════════════════════════════════════════════════════════════
 
-  ms-{ms_name_slug}:
+  msa-{ms_name_slug}:
     build:
-      context: ./ms-{ms_name_slug}
-    container_name: ms-{ms_name_slug}
+      context: ./msa-{ms_name_slug}
+    container_name: msa-{ms_name_slug}
     restart: unless-stopped
     environment:
       DB_HOST: mysql
@@ -667,12 +667,12 @@ def _build_instrucciones(
 
 Copiar la carpeta completa:
 
-  ORIGEN : (esta carpeta)  ms-{ms_name_slug}/
-  DESTINO: {repo_path}/ms-{ms_name_slug}/
+  ORIGEN : (esta carpeta)  msa-{ms_name_slug}/
+  DESTINO: {repo_path}/msa-{ms_name_slug}/
 
 Verificar que la estructura quede así:
   {repo_path}/
-  └── ms-{ms_name_slug}/
+  └── msa-{ms_name_slug}/
       ├── Dockerfile
       ├── package.json
       ├── tsconfig.json
@@ -687,7 +687,7 @@ Verificar que la estructura quede así:
 
 Abrir terminal en la carpeta del microservicio:
 
-  cd {repo_path}/ms-{ms_name_slug}
+  cd {repo_path}/msa-{ms_name_slug}
   npm install
 
 ## PASO 3 — Actualizar el docker-compose.yml
@@ -698,17 +698,17 @@ Agregar el bloque del archivo: docker-compose.patch.yml
 (ver instrucciones dentro del archivo .patch.yml)
 
 También agregar la variable de entorno al servicio mdl-billetera:
-  MS_{ms_name_slug.upper().replace("-", "_")}_URL: http://ms-{ms_name_slug}:{port}
+  MS_{ms_name_slug.upper().replace("-", "_")}_URL: http://msa-{ms_name_slug}:{port}
 
 """
     else:
         pasos_ms = f"""
 ## PASO 1 — Agregar archivos al microservicio existente
 
-Los archivos en ms-{ms_name_slug}/src/ son los métodos nuevos a integrar.
+Los archivos en msa-{ms_name_slug}/src/ son los métodos nuevos a integrar.
 
-  ORIGEN : (esta carpeta)  ms-{ms_name_slug}/src/{entity_snake}.controller.ts
-  DESTINO: {repo_path}/ms-{ms_name_slug}/src/{entity_snake}.controller.ts
+  ORIGEN : (esta carpeta)  msa-{ms_name_slug}/src/{entity_snake}.controller.ts
+  DESTINO: {repo_path}/msa-{ms_name_slug}/src/{entity_snake}.controller.ts
 
 Si el controller ya existe, agregar solo el método nuevo (ver archivo .patch).
 Si el modelo aún no existe, copiar también {entity_snake}.model.ts
@@ -744,7 +744,7 @@ Buscar en el archivo {entity_snake}.service.ts los comentarios "TODO" para cada 
 
     return f"""# Instrucciones de migración
 # Endpoint: {http_method} {route_path}
-# Microservicio: ms-{ms_name_slug} (puerto {port})
+# Microservicio: msa-{ms_name_slug} (puerto {port})
 # Generado automáticamente por la herramienta de migración PHP → NestJS
 # ──────────────────────────────────────────────────────────────────────
 {pasos_ms}
@@ -760,7 +760,7 @@ Abrir: {repo_path}/mdl-billetera/src/app.service.ts
 
 Desde la raíz del repo NestJS:
 
-  docker-compose up --build ms-{ms_name_slug}
+  docker-compose up --build msa-{ms_name_slug}
 
 Si el servicio levanta sin errores, probar el endpoint:
 
@@ -776,7 +776,7 @@ Probar desde el gateway (puerto 3000):
 {campos_revisar}{metodos_revisar}
 ## ARCHIVOS GENERADOS EN ESTE OUTPUT
 
-  ms-{ms_name_slug}/                        ← {"Microservicio completo" if es_nuevo else "Archivos a integrar"}
+  msa-{ms_name_slug}/                        ← {"Microservicio completo" if es_nuevo else "Archivos a integrar"}
   gateway-changes/
     app.controller.patch.ts                  ← Fragmento para mdl-billetera controller
     app.service.patch.ts                     ← Fragmento para mdl-billetera service
@@ -825,7 +825,7 @@ def generate_akisi_scaffold(
     entity_class = pascal_case(ms_slug)
     table_name = entity_snake + "s"
 
-    ms_dir = out_base_dir / f"ms-{ms_slug}"
+    ms_dir = out_base_dir / f"msa-{ms_slug}"
     src_dir = ms_dir / "src"
     gateway_dir = out_base_dir / "gateway-changes"
 
