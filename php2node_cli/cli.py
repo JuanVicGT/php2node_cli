@@ -142,6 +142,15 @@ def parse_args() -> argparse.Namespace:
         help="Ruta al repo NestJS destino (akisi_backend_nestjs). También via AKISI_REPO_ROOT en .env. "
              "Se usa para detectar puertos usados y generar instrucciones con rutas correctas.",
     )
+    p.add_argument(
+        "--flujo",
+        required=False,
+        default=None,
+        choices=["A", "B", "a", "b"],
+        help="Patrón de generación: A = controller→use-case (defecto para GETs simples), "
+             "B = controller→service→use-cases (orquestación multi-paso). "
+             "Si se omite, se detecta automáticamente desde domain_map.json.",
+    )
 
     return p.parse_args()
 
@@ -216,26 +225,57 @@ def _detectar_puerto_disponible(akisi_root: str | None, fallback: int = 3003) ->
         return fallback
 
 
-def _load_domain_map() -> dict[str, str]:
+def _load_domain_map() -> dict[str, dict]:
+    """
+    Carga domain_map.json.
+    Soporta el formato nuevo:  { "customer": { "msa": "customer", "flujo": "A" } }
+    y el formato antiguo:      { "customer": "customer" }
+    """
     domain_map_file = Path("domain_map.json")
     if not domain_map_file.exists():
         return {}
 
     try:
         data = json.loads(domain_map_file.read_text(encoding="utf-8"))
-        if isinstance(data, dict):
-            return {str(k).strip().lower(): str(v).strip().lower() for k, v in data.items()}
-        return {}
+        if not isinstance(data, dict):
+            return {}
+
+        result: dict[str, dict] = {}
+        for k, v in data.items():
+            key = str(k).strip().lower()
+            if isinstance(v, dict):
+                result[key] = {
+                    "msa": str(v.get("msa", key)).strip().lower(),
+                    "flujo": str(v.get("flujo", "A")).upper(),
+                }
+            else:
+                # Formato antiguo: valor es string con el nombre del MSA
+                result[key] = {"msa": str(v).strip().lower(), "flujo": "A"}
+        return result
     except Exception as e:
         LOG.warning("Could not load domain_map.json: %s", e)
         return {}
 
 
-def _resolve_domain_name(controller_name: str, domain_map: dict[str, str]) -> str:
+def _resolve_domain_name(controller_name: str, domain_map: dict[str, dict]) -> str:
     key = (controller_name or "").strip().lower()
     if not key:
         return "unknown"
-    return domain_map.get(key, key)
+    entry = domain_map.get(key)
+    if entry:
+        return entry["msa"]
+    return key
+
+
+def _resolve_flujo(controller_name: str, domain_map: dict[str, dict], flujo_override: str | None) -> str:
+    """Retorna el flujo a usar: override del CLI > domain_map > defecto A."""
+    if flujo_override:
+        return flujo_override.upper()
+    key = (controller_name or "").strip().lower()
+    entry = domain_map.get(key)
+    if entry:
+        return entry.get("flujo", "A")
+    return "A"
 
 
 def main() -> int:
@@ -412,16 +452,16 @@ def main() -> int:
     )
 
     LOG.info("Stage 6b: Generate Akisi scaffold (patrón akisi_backend_nestjs)")
-    # Nombre del microservicio: --ms-name tiene prioridad, si no se usa el dominio detectado
     ms_name = args.ms_name if args.ms_name else domain_name
     es_nuevo = args.ms_new
 
-    # Puerto: --ms-port tiene prioridad, si no se detecta automáticamente desde docker-compose
     akisi_root = getattr(args, "akisi_root", None)
     if args.ms_port:
         ms_port = args.ms_port
     else:
         ms_port = _detectar_puerto_disponible(akisi_root, fallback=3003)
+
+    flujo = _resolve_flujo(row.controller, domain_map, getattr(args, "flujo", None))
 
     generate_akisi_scaffold(
         out_base_dir=base_dir,
@@ -431,10 +471,11 @@ def main() -> int:
         handler_name=handler_name,
         port=ms_port,
         es_nuevo=es_nuevo,
+        flujo=flujo,
         analysis_data=analysis,
         akisi_repo_root=akisi_root,
     )
-    LOG.info("Akisi scaffold generado: msa-%s (puerto %d, nuevo=%s)", ms_name, ms_port, es_nuevo)
+    LOG.info("Akisi scaffold generado: msa-%s (puerto %d, nuevo=%s, flujo=%s)", ms_name, ms_port, es_nuevo, flujo)
 
     LOG.info("Stage 7: Generate report.md + changes.md")
     risks = []

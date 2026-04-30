@@ -86,7 +86,7 @@ echo ""
 # PASO 1 — Endpoint
 # ─────────────────────────────────────────────────────────────────────────────
 linea_sm
-titulo "[1/6]  Endpoint a migrar"
+titulo "[1/7]  Endpoint a migrar"
 echo "       Escribe la ruta sin barra inicial."
 echo "       Ejemplo: bank_account/dacustomer_bank"
 echo ""
@@ -104,7 +104,7 @@ echo ""
 # PASO 2 — Método HTTP
 # ─────────────────────────────────────────────────────────────────────────────
 linea_sm
-titulo "[2/6]  Método HTTP"
+titulo "[2/7]  Método HTTP"
 echo ""
 echo "       1) GET"
 echo "       2) POST"
@@ -127,7 +127,7 @@ echo ""
 # PASO 3 — Versión
 # ─────────────────────────────────────────────────────────────────────────────
 linea_sm
-titulo "[3/6]  Versión del inventario"
+titulo "[3/7]  Versión del inventario"
 echo ""
 echo "       1) v1"
 echo "       2) v2"
@@ -148,7 +148,7 @@ echo ""
 # PASO 4 — Microservicio nuevo o existente
 # ─────────────────────────────────────────────────────────────────────────────
 linea_sm
-titulo "[4/6]  ¿El microservicio es nuevo o ya existe en el repo NestJS?"
+titulo "[4/7]  ¿El microservicio es nuevo o ya existe en el repo NestJS?"
 echo ""
 echo "       1) Nuevo  — genera microservicio completo + Dockerfile + docker-compose"
 echo "       2) Existente — genera solo los archivos del endpoint a integrar"
@@ -167,7 +167,7 @@ echo ""
 # PASO 5 — Nombre del microservicio
 # ─────────────────────────────────────────────────────────────────────────────
 linea_sm
-titulo "[5/6]  Nombre del microservicio"
+titulo "[5/7]  Nombre del microservicio"
 echo "       Solo el nombre, sin el prefijo msa-."
 echo "       Ejemplo: bank-account  →  se creará msa-bank-account"
 echo ""
@@ -183,13 +183,43 @@ done
 echo ""
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PASO 6 — Puerto (solo si es nuevo)
+# PASO 6 — Flujo de generación (A o B)
+# ─────────────────────────────────────────────────────────────────────────────
+linea_sm
+titulo "[6/7]  Patrón de generación"
+echo ""
+echo "       Flujo A (recomendado para GETs simples):"
+echo "         controller → use-case  (sin service intermediario)"
+echo ""
+echo "       Flujo B (para operaciones con orquestación multi-paso):"
+echo "         controller → service → use-cases"
+echo "         Ej: login, transferencias, operaciones con eventos"
+echo ""
+echo "       Nota: si omites la selección se detecta automáticamente desde domain_map.json."
+echo ""
+echo "       1) Flujo A — controller → use-case"
+echo "       2) Flujo B — controller → service → use-cases"
+echo "       3) Detectar automáticamente desde domain_map.json"
+echo ""
+while true; do
+    read -rp "  Elige una opción (1-3): " FLUJO_OPCION
+    case "$FLUJO_OPCION" in
+        1) FLUJO_ARG="A"; FLUJO_FLAG="--flujo A"; break ;;
+        2) FLUJO_ARG="B"; FLUJO_FLAG="--flujo B"; break ;;
+        3) FLUJO_ARG="";  FLUJO_FLAG="";           break ;;
+        *) warn "Opción inválida. Elige entre 1 y 3." ;;
+    esac
+done
+echo ""
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PASO 7 — Puerto (solo si es nuevo)
 # ─────────────────────────────────────────────────────────────────────────────
 MS_PORT_FLAG=""
 
 if [[ "$ES_NUEVO" == true ]]; then
     linea_sm
-    titulo "[6/6]  Puerto del microservicio"
+    titulo "[7/7]  Puerto del microservicio"
 
     # Intentar detectar puerto automáticamente desde docker-compose.yml
     COMPOSE_FILE="${AKISI_REPO_ROOT:-}/docker-compose.yml"
@@ -227,7 +257,7 @@ if [[ "$ES_NUEVO" == true ]]; then
     MS_PORT_FLAG="--ms-port ${MS_PORT}"
     echo ""
 else
-    titulo "[6/6]  Puerto — No aplica para microservicio existente"
+    titulo "[7/7]  Puerto — No aplica para microservicio existente"
     echo ""
 fi
 
@@ -265,6 +295,11 @@ else
     echo "   Versión       : Detectar automáticamente"
 fi
 echo "   Microservicio : msa-${MS_NAME_INPUT}"
+if [[ -n "$FLUJO_ARG" ]]; then
+    echo "   Flujo         : ${FLUJO_ARG} $( [[ "$FLUJO_ARG" == "A" ]] && echo "(controller → use-case)" || echo "(controller → service)" )"
+else
+    echo "   Flujo         : Detectar automáticamente"
+fi
 if [[ "$ES_NUEVO" == true ]]; then
     echo "   Tipo          : NUEVO (se genera estructura completa)"
     echo "   Puerto        : ${MS_PORT}"
@@ -302,10 +337,11 @@ CMD_ARGS=(
     "--ms-name" "$MS_NAME_INPUT"
 )
 
-[[ -n "$VERSION_ARG" ]]     && CMD_ARGS+=("--version" "$VERSION_ARG")
-[[ "$ES_NUEVO" == true ]]   && CMD_ARGS+=("--ms-new")
-[[ "$ES_NUEVO" == true ]]   && CMD_ARGS+=("--ms-port" "$MS_PORT")
-[[ -n "$INV_PATH" ]]        && CMD_ARGS+=("--inventory-xlsx" "$INV_PATH")
+[[ -n "$VERSION_ARG" ]]      && CMD_ARGS+=("--version" "$VERSION_ARG")
+[[ "$ES_NUEVO" == true ]]    && CMD_ARGS+=("--ms-new")
+[[ "$ES_NUEVO" == true ]]    && CMD_ARGS+=("--ms-port" "$MS_PORT")
+[[ -n "$FLUJO_ARG" ]]        && CMD_ARGS+=("--flujo" "$FLUJO_ARG")
+[[ -n "$INV_PATH" ]]         && CMD_ARGS+=("--inventory-xlsx" "$INV_PATH")
 [[ -n "$AKISI_ROOT_CLEAN" ]] && CMD_ARGS+=("--akisi-root" "$AKISI_ROOT_CLEAN")
 CMD_ARGS+=("-v")
 

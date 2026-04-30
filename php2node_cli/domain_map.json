@@ -1,15 +1,15 @@
 {
-  "customer": "customer",
-  "bank_account": "accounts",
-  "card": "cards",
-  "transaction": "transactions",
-  "payment": "transactions",
-  "transfer": "transactions",
-  "wallet": "wallet",
-  "auth": "identity",
-  "login": "identity",
-  "user": "identity",
-  "notification": "notifications",
-  "pronet": "integration",
-  "terceros": "integration"
+  "customer":     { "msa": "customer",      "flujo": "A" },
+  "bank_account": { "msa": "accounts",      "flujo": "A" },
+  "card":         { "msa": "cards",         "flujo": "A" },
+  "transaction":  { "msa": "transactions",  "flujo": "B" },
+  "payment":      { "msa": "transactions",  "flujo": "B" },
+  "transfer":     { "msa": "transactions",  "flujo": "B" },
+  "wallet":       { "msa": "wallet",        "flujo": "A" },
+  "auth":         { "msa": "identity",      "flujo": "B" },
+  "login":        { "msa": "identity",      "flujo": "B" },
+  "user":         { "msa": "identity",      "flujo": "B" },
+  "notification": { "msa": "notifications", "flujo": "A" },
+  "pronet":       { "msa": "integration",   "flujo": "B" },
+  "terceros":     { "msa": "integration",   "flujo": "B" }
 }
